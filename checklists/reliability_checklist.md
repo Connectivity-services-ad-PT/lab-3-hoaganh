@@ -1,70 +1,86 @@
-# Reliability Checklist — pair10: Access Gate → Core Business
+# Reliability Checklist — team-core (pair10)
 
-**Nhóm:** A6 — Core Business Service  
-**Ngày:** 25/05/2026  
-**Contract:** `contracts/core-business.openapi.yaml`
+**Contract:** `contracts/core-business.openapi.yaml`  
+**Collection:** `postman/collections/FIT4110_lab03_core.postman_collection.json`  
+**Ngày kiểm tra:** 25/05/2026  
+**Người thực hiện:** Nhóm A6 — Phạm Hoàng Anh, Trần Quang Huy, Nguyễn Trọng Nam
 
 ---
 
 ## 1. Contract Quality
 
-- [x] OpenAPI contract lint pass (No errors) với `campus-spectral.yaml`
-- [x] Tất cả operation có ít nhất 1 response `2xx`
-- [x] Tất cả operation có ít nhất 1 response `4xx`
+- [x] Contract dùng OpenAPI 3.1.0
+- [x] Tất cả operation có `operationId` duy nhất
+- [x] Tất cả operation có `summary` và `description`
+- [x] Tất cả operation có ít nhất một response `2xx`
+- [x] Tất cả operation có ít nhất một response `4xx`
 - [x] Error response dùng cấu trúc `ProblemDetails`
-- [x] Field enum được ràng buộc rõ (`AccessDecision`, `AccessDirection`, `UserRole`)
-- [x] Field có `null` dùng union type `type: [string, "null"]`
-- [x] Schema dùng `$ref` thay vì inline
+- [x] Schema dùng `$ref` thay vì inline dài
+- [x] Có ít nhất một `oneOf` + `discriminator`
+- [x] Có ít nhất một trường union type với `null`
+- [x] Spectral lint pass — No errors
 
 ---
 
-## 2. Collection Quality
+## 2. Collection Structure
 
-- [x] Collection có đủ 6 folder bắt buộc
-- [x] Request đặt tên rõ ràng theo mục đích
+- [x] Có folder `01_Functional`
+- [x] Có folder `02_Auth`
+- [x] Có folder `03_Negative`
+- [x] Có folder `04_Boundary_Reliability`
+- [x] Có folder `05_Consumer_side_Smoke`
+- [x] Có folder `06_Local_only_NonFunctional`
+- [x] Request đặt tên rõ ràng, có mô tả mục đích
 - [x] Không hardcode `baseUrl` trong collection
 - [x] Không hardcode `authToken` trong collection
-- [x] Tất cả URL dùng `{{baseUrl}}`
-- [x] Authorization header dùng `{{authToken}}`
 
 ---
 
 ## 3. Test Coverage
 
-- [x] Happy path test cho tất cả endpoint chính
-- [x] Auth test: có token hợp lệ → 200
-- [x] Auth test: thiếu token → 401/403
-- [x] Negative test: payload sai định dạng → 400/422
-- [x] Negative test: thiếu field bắt buộc → 400/422
-- [x] Boundary test: limit min (1) và max (100)
-- [x] Consumer-side smoke test gọi `/health` và `/policy/access-check`
-- [x] Non-functional SLA test chỉ chạy khi `env === local`
+- [x] Happy path: GET /health trả 200 với status ok
+- [x] Happy path: POST /policy/access-check trả 200 với decision
+- [x] Happy path: GET /policy/rules trả 200 với items array
+- [x] Happy path: GET /policy/rules/{policyId} trả 200 với policyId
+- [x] Happy path: POST /access-log trả 201 với logId
+- [x] Auth test: request có token hợp lệ trả 200
+- [x] Auth test: request thiếu token được kiểm tra
+- [x] Negative: cardId sai định dạng trả 400/422
+- [x] Negative: thiếu field bắt buộc trả 400/422
+- [x] Negative: policyId không tồn tại ghi nhận 404
+- [x] Boundary: limit=1 (min boundary)
+- [x] Boundary: limit=100 (max boundary)
+- [x] Boundary: POST /access-log với DENY + reason
+- [x] Consumer-side smoke: Access Gate gọi /health của Core Business
+- [x] Consumer-side smoke: Access Gate gọi /policy/access-check với direction EXIT
+- [x] Local-only NonFunctional: SLA response time < 200ms
 
 ---
 
 ## 4. Environment
 
-- [x] Có environment `FIT4110_lab03_mock` với `baseUrl=http://localhost:4010`
-- [x] Có environment `FIT4110_lab03_local` với `baseUrl=http://localhost:8000`
-- [x] Biến `env` dùng để phân nhánh test SLA
-- [x] Biến `teamName` được khai báo
+- [x] Environment `FIT4110_lab03_mock` đã tạo
+- [x] Environment `FIT4110_lab03_local` đã tạo
+- [x] `env`, `baseUrl`, `authToken`, `teamName` đều có trong cả 2 environment
+- [x] Mock environment dùng `http://localhost:4010`
+- [x] Local environment dùng `http://localhost:8000`
 
 ---
 
-## 5. Newman & CI Evidence
+## 5. Newman Report
 
-- [x] Newman chạy được với mock environment
-- [x] Newman report HTML được sinh tại `reports/newman-report.html`
-- [x] Newman report XML được sinh tại `reports/newman-report.xml`
-- [x] Contract lint report được sinh tại `reports/contract-lint-report.txt`
-- [ ] GitHub Actions chạy được (chưa cấu hình CI tự động)
+- [x] Newman chạy thành công trên mock environment
+- [x] Kết quả: **35/35 PASS, 0 Failed, 0 Errors**
+- [x] `reports/newman-report.html` đã sinh
+- [x] `reports/newman-report.xml` đã sinh
+- [x] `reports/contract-lint-report.txt` đã sinh
 
 ---
 
-## 6. Known Issues & Limitations
+## 6. Known Issues
 
 | Issue | Mô tả | Kế hoạch xử lý |
 |---|---|---|
-| Auth test trên mock | Mock Prism không validate auth thật, test thiếu token vẫn trả 200 | Sẽ kiểm thử auth thật khi có service local |
-| 404 test trên mock | Prism trả 200 theo example, không trả 404 thật | Test đã được điều chỉnh chấp nhận 200/404 trên mock |
-| SLA test | Chỉ chạy trên local, mock không đại diện latency thật | Đã guard bằng `env === local` |
+| Auth test trên mock | Mock Prism không validate auth thật nên thiếu token vẫn trả 200 | Kiểm tra thật khi service local hoàn thiện |
+| 404 test trên mock | Mock luôn trả 200 theo example | Test điều chỉnh chấp nhận 200/404, service thật sẽ trả 404 đúng |
+| Local environment | Service thật chưa code trong Lab 03 | Kiểm thử ở Lab 04 hoặc sprint tiếp theo |

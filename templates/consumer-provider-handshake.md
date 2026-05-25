@@ -1,67 +1,71 @@
 # Consumer-Provider Handshake — pair10
 
-**Consumer:** Access Gate Service  
-**Provider:** Core Business Service (Nhóm A6)  
-**Contract version:** v1.0.0  
-**Ngày ký:** 25/05/2026
-
----
-
-## 1. Thông tin cặp đàm phán
+## Thông tin cặp
 
 | | Consumer | Provider |
 |---|---|---|
 | **Service** | Access Gate Service | Core Business Service |
-| **Nhóm** | Access Gate team | Nhóm A6 |
+| **Nhóm** | Nhóm Access Gate | Nhóm A6 |
 | **Contract** | `contracts/core-business.openapi.yaml` | `contracts/core-business.openapi.yaml` |
 
 ---
 
-## 2. API Consumer phụ thuộc vào Provider
+## Cam kết của Provider (Core Business)
 
-| Endpoint | Method | Mục đích | Mock URL |
+Provider cam kết cung cấp các endpoint sau theo đúng contract v1.0:
+
+| Endpoint | Method | Mục đích | SLA |
 |---|---|---|---|
-| `/health` | GET | Kiểm tra Core Business còn sống | `http://localhost:4010/health` |
-| `/policy/access-check` | POST | Kiểm tra policy ra/vào realtime | `http://localhost:4010/policy/access-check` |
-| `/policy/rules` | GET | Lấy danh sách policy để cache | `http://localhost:4010/policy/rules` |
-| `/policy/rules/{policyId}` | GET | Lấy chi tiết một policy | `http://localhost:4010/policy/rules/{policyId}` |
-| `/access-log` | POST | Gửi log quẹt thẻ lên Core Business | `http://localhost:4010/access-log` |
+| `/health` | GET | Kiểm tra service còn sống | < 200ms |
+| `/policy/access-check` | POST | Kiểm tra policy ra/vào realtime | < 200ms |
+| `/policy/rules` | GET | Lấy danh sách policy rules | < 500ms |
+| `/policy/rules/{policyId}` | GET | Lấy chi tiết một policy rule | < 500ms |
+| `/access-log` | POST | Nhận log quẹt thẻ từ Access Gate | < 500ms |
+
+Provider cam kết:
+- Response format theo đúng schema trong `openapi.yaml`
+- Error response dùng `ProblemDetails` (RFC 7807)
+- Bearer token authentication bắt buộc (trừ `/health`)
+- Mock server luôn sẵn sàng tại `http://localhost:4010` cho Consumer test sớm
 
 ---
 
-## 3. Consumer-side Smoke Test đã thực hiện
+## Cam kết của Consumer (Access Gate)
 
-| Test | Endpoint gọi | Kết quả |
+Consumer cam kết:
+- Gọi đúng endpoint và method theo contract
+- Gửi đúng schema request body (cardId, gateId, direction, timestamp)
+- Luôn gửi Bearer token trong Authorization header
+- Gửi log lên `/access-log` sau mỗi lần quyết định ALLOW/DENY
+- Cache policy rules tối đa 5 phút, refresh sau đó
+
+---
+
+## Consumer-side Smoke Test
+
+Consumer đã viết smoke test gọi mock của Core Business:
+
+| Test | Endpoint | Kết quả |
 |---|---|---|
-| Core Business health check | `GET /health` | ✅ PASS — 200 OK |
-| Policy check direction EXIT | `POST /policy/access-check` | ✅ PASS — 200 OK, decision hợp lệ |
+| Core Business còn sống | GET /health | ✅ PASS |
+| Kiểm tra policy ENTER | POST /policy/access-check | ✅ PASS |
+| Kiểm tra policy EXIT | POST /policy/access-check (direction=EXIT) | ✅ PASS |
 
 ---
 
-## 4. Cam kết từ Provider (Core Business)
+## Sign-off
 
-- [x] API endpoint `/policy/access-check` phản hồi trong vòng 200ms
-- [x] Response luôn có trường `decision` với giá trị `ALLOW` hoặc `DENY`
-- [x] Response lỗi tuân theo cấu trúc `ProblemDetails`
-- [x] Bearer token bắt buộc cho tất cả endpoint trừ `/health`
-- [x] Contract được lint pass với `campus-spectral.yaml`
-
----
-
-## 5. Cam kết từ Consumer (Access Gate)
-
-- [x] Gửi đúng định dạng `cardId`: `RFID-YYYY-NNN`
-- [x] Gửi đúng định dạng `gateId`: `GATE-NN`
-- [x] Gửi `timestamp` chính xác thời điểm quẹt thẻ (không lệch quá 5 phút)
-- [x] Gửi log đầy đủ lên `/access-log` sau mỗi quyết định
-- [x] Refresh cache policy mỗi 5 phút
+| Vai trò | Tên | Ngày | Chữ ký |
+|---|---|---|---|
+| Provider | Nhóm A6 — Core Business | 25/05/2026 | Phạm Hoàng Anh |
+| Consumer | Nhóm Access Gate | 25/05/2026 | _(Consumer ký)_ |
+| Witness | FIT4110 Teaching Team | 25/05/2026 | _(GV/TA ký)_ |
 
 ---
 
-## 6. Sign-off
+## Ghi chú
 
-| Vai trò | Tên | Ngày |
-|---|---|---|
-| Provider (Core Business) | Nhóm A6 — Phạm Hoàng Anh, Trần Quang Huy, Nguyễn Trọng Nam | 25/05/2026 |
-| Consumer (Access Gate) | Access Gate team | 25/05/2026 |
-| Witness (GV/TA) | FIT4110 Teaching Team | 25/05/2026 |
+- Contract version: v1.0.0
+- Mock server: Prism 5.15.10
+- Newman: 6.2.2
+- Spectral lint: No errors
